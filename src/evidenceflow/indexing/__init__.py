@@ -1,0 +1,1 @@
+"""Embedding indexing and semantic-search orchestration."""

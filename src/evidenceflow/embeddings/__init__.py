@@ -1,0 +1,1 @@
+"""Embedding generation for EvidenceFlow AI."""

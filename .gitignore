@@ -1,0 +1,17 @@
+.venv/
+.env
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+artifacts/*
+!artifacts/.gitkeep
+data/documents/*
+!data/documents/.gitkeep
+.streamlit/secrets.toml
+.DS_Store

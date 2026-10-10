@@ -1,0 +1,27 @@
+[
+  {
+    "question_id": "q-001",
+    "question": "How does FastAPI validate requests?",
+    "relevant_chunk_ids": [
+      "chunk-812a4bf04908516386bf"
+    ],
+    "answerable": true,
+    "expected_citation_ids": [
+      "chunk-812a4bf04908516386bf"
+    ],
+    "metadata": {
+      "category": "answerable",
+      "source_name": "fastapi-guide.md"
+    }
+  },
+  {
+    "question_id": "q-002",
+    "question": "What payment method does the document recommend?",
+    "relevant_chunk_ids": [],
+    "answerable": false,
+    "expected_citation_ids": [],
+    "metadata": {
+      "category": "unanswerable"
+    }
+  }
+]
