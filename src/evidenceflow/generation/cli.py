@@ -13,6 +13,7 @@ from evidenceflow.generation.service import (
     GroundedAnswerService,
 )
 from evidenceflow.indexing.cli import build_service
+from evidenceflow.llm.factory import build_llm_answer_generator
 from evidenceflow.reranking.encoder import CrossEncoderReranker
 from evidenceflow.reranking.service import (
     RerankedRetriever,
@@ -27,7 +28,7 @@ def build_answer_service(
     settings: Settings,
     minimum_rerank_score: float,
 ) -> GroundedAnswerService:
-    """Construct the complete grounded-answer pipeline."""
+    """Construct the complete LLM-powered answer pipeline."""
 
     chunk_repository = ChunkRepository(
         settings.database_path
@@ -65,20 +66,24 @@ def build_answer_service(
         maximum_evidence=2,
     )
 
+    llm_generator = build_llm_answer_generator()
+
     return GroundedAnswerService(
         retriever=reranked_retriever,
         sufficiency_checker=sufficiency_checker,
-        answer_generator=ExtractiveAnswerGenerator(),
+        answer_generator=llm_generator,
+        fallback_generator=ExtractiveAnswerGenerator(),
     )
 
 
 def main() -> None:
-    """Run grounded question answering."""
+    """Run LLM-powered grounded question answering."""
 
     parser = argparse.ArgumentParser(
         description=(
-            "Answer a question using independently "
-            "validated document citations"
+            "Answer questions using retrieved evidence, "
+            "Groq generation, Gemini fallback, and "
+            "validated citations"
         )
     )
 
@@ -137,6 +142,14 @@ def main() -> None:
         "used_reranker_fallback": (
             result.used_reranker_fallback
         ),
+        "generation_provider": (
+            result.generation_provider
+        ),
+        "generation_model": result.generation_model,
+        "used_llm_fallback": result.used_llm_fallback,
+        "llm_fallback_reason": (
+            result.llm_fallback_reason
+        ),
         "citation_validation": {
             "valid": result.citation_validation.valid,
             "coverage": round(
@@ -175,24 +188,7 @@ def main() -> None:
                     6,
                 ),
                 "rerank_rank": evidence.rerank_rank,
-                "fusion_score": round(
-                    evidence.fusion_score,
-                    8,
-                ),
                 "fusion_rank": evidence.fusion_rank,
-                "sparse_score": (
-                    round(evidence.sparse_score, 6)
-                    if evidence.sparse_score is not None
-                    else None
-                ),
-                "sparse_rank": evidence.sparse_rank,
-                "dense_score": (
-                    round(evidence.dense_score, 6)
-                    if evidence.dense_score is not None
-                    else None
-                ),
-                "dense_rank": evidence.dense_rank,
-                "chunk_order": evidence.chunk_order,
                 "heading_path": list(
                     evidence.heading_path
                 ),

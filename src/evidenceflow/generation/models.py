@@ -45,3 +45,7 @@ class GroundedAnswer:
     used_reranker_fallback: bool
     latency_ms: dict[str, float]
     warnings: tuple[str, ...]
+    generation_provider: str = "extractive"
+    generation_model: str = "extractive"
+    used_llm_fallback: bool = False
+    llm_fallback_reason: str | None = None

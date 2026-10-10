@@ -15,6 +15,8 @@ from evidenceflow.generation.service import (
 )
 from evidenceflow.indexing.service import EmbeddingIndexService
 from evidenceflow.ingestion.service import IngestionService
+from evidenceflow.llm.factory import build_llm_answer_generator
+from evidenceflow.llm.generator import LLMAnswerGenerator
 from evidenceflow.reranking.encoder import CrossEncoderReranker
 from evidenceflow.reranking.service import (
     RerankedRetriever,
@@ -40,6 +42,7 @@ class ApplicationServices:
     hybrid_retriever: HybridRetriever
     reranking_service: RerankingService
     reranked_retriever: RerankedRetriever
+    llm_answer_generator: LLMAnswerGenerator
 
     def create_chunking_service(
         self,
@@ -59,7 +62,7 @@ class ApplicationServices:
         self,
         minimum_rerank_score: float,
     ) -> GroundedAnswerService:
-        """Create an answer service with a request-specific threshold."""
+        """Create an LLM answer service with a custom threshold."""
 
         return GroundedAnswerService(
             retriever=self.reranked_retriever,
@@ -67,13 +70,14 @@ class ApplicationServices:
                 minimum_rerank_score=minimum_rerank_score,
                 maximum_evidence=2,
             ),
-            answer_generator=ExtractiveAnswerGenerator(),
+            answer_generator=self.llm_answer_generator,
+            fallback_generator=ExtractiveAnswerGenerator(),
         )
 
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
-    """Return the cached application settings."""
+    """Return cached application settings."""
 
     settings = Settings.from_env()
     settings.ensure_directories()
@@ -83,7 +87,7 @@ def get_settings() -> Settings:
 
 @lru_cache(maxsize=1)
 def get_application_services() -> ApplicationServices:
-    """Create and cache repositories, encoders, and retrieval services."""
+    """Create and cache repositories, models, and services."""
 
     settings = get_settings()
 
@@ -138,15 +142,12 @@ def get_application_services() -> ApplicationServices:
         fallback_enabled=True,
     )
 
-    reranking_service = RerankingService(
-        reranker=cross_encoder,
-        fallback_enabled=True,
-    )
-
     reranked_retriever = RerankedRetriever(
         hybrid_retriever=hybrid_retriever,
         reranking_service=reranking_service,
     )
+
+    llm_answer_generator = build_llm_answer_generator()
 
     return ApplicationServices(
         settings=settings,
@@ -158,4 +159,12 @@ def get_application_services() -> ApplicationServices:
         hybrid_retriever=hybrid_retriever,
         reranking_service=reranking_service,
         reranked_retriever=reranked_retriever,
+        llm_answer_generator=llm_answer_generator,
     )
+
+
+def clear_application_caches() -> None:
+    """Clear cached dependencies after configuration changes."""
+
+    get_application_services.cache_clear()
+    get_settings.cache_clear()

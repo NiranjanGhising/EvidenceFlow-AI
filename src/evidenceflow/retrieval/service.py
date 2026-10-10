@@ -26,6 +26,7 @@ class DenseSearchService(Protocol):
         query: str,
         limit: int = 5,
         minimum_score: float | None = None,
+        document_id: str | None = None,
     ) -> list[SemanticSearchResult]:
         """Return semantic search results."""
 
@@ -63,7 +64,9 @@ class HybridRetriever:
             )
 
         if rrf_k <= 0:
-            raise ValueError("rrf_k must be greater than zero")
+            raise ValueError(
+                "rrf_k must be greater than zero"
+            )
 
         self.sparse_retriever = sparse_retriever
         self.dense_retriever = dense_retriever
@@ -77,13 +80,16 @@ class HybridRetriever:
         candidate_limit: int = 20,
         result_limit: int = 5,
         dense_minimum_score: float | None = None,
+        document_id: str | None = None,
     ) -> HybridSearchResponse:
-        """Run sparse, dense, and fusion stages."""
+        """Run document-scoped sparse, dense, and fusion stages."""
 
         normalized_query = query.strip()
 
         if not normalized_query:
-            raise ValueError("Search query cannot be empty")
+            raise ValueError(
+                "Search query cannot be empty"
+            )
 
         if candidate_limit <= 0:
             raise ValueError(
@@ -95,11 +101,22 @@ class HybridRetriever:
                 "result_limit must be greater than zero"
             )
 
+        normalized_document_id = None
+
+        if document_id is not None:
+            normalized_document_id = document_id.strip()
+
+            if not normalized_document_id:
+                raise ValueError(
+                    "document_id cannot be empty"
+                )
+
         sparse_start = perf_counter()
 
         sparse_results = self.sparse_retriever.search(
             query=normalized_query,
             limit=candidate_limit,
+            document_id=normalized_document_id,
         )
 
         sparse_end = perf_counter()
@@ -108,6 +125,7 @@ class HybridRetriever:
             query=normalized_query,
             limit=candidate_limit,
             minimum_score=dense_minimum_score,
+            document_id=normalized_document_id,
         )
 
         dense_end = perf_counter()
@@ -124,27 +142,50 @@ class HybridRetriever:
         fusion_end = perf_counter()
 
         latency_ms = {
-            "sparse": (sparse_end - sparse_start) * 1000,
-            "dense": (dense_end - sparse_end) * 1000,
-            "fusion": (fusion_end - dense_end) * 1000,
-            "total": (fusion_end - sparse_start) * 1000,
+            "sparse": (
+                sparse_end - sparse_start
+            )
+            * 1000,
+            "dense": (
+                dense_end - sparse_end
+            )
+            * 1000,
+            "fusion": (
+                fusion_end - dense_end
+            )
+            * 1000,
+            "total": (
+                fusion_end - sparse_start
+            )
+            * 1000,
         }
 
         logger.info(
             "hybrid_search_completed",
             extra={
                 "query": normalized_query,
-                "sparse_count": len(sparse_results),
-                "dense_count": len(dense_results),
+                "document_id": normalized_document_id,
+                "sparse_count": len(
+                    sparse_results
+                ),
+                "dense_count": len(
+                    dense_results
+                ),
                 "result_count": len(results),
-                "latency_ms": latency_ms["total"],
+                "latency_ms": latency_ms[
+                    "total"
+                ],
             },
         )
 
         return HybridSearchResponse(
             query=normalized_query,
             results=tuple(results),
-            sparse_results=tuple(sparse_results),
-            dense_results=tuple(dense_results),
+            sparse_results=tuple(
+                sparse_results
+            ),
+            dense_results=tuple(
+                dense_results
+            ),
             latency_ms=latency_ms,
         )

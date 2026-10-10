@@ -26,20 +26,32 @@ class VectorRecord:
 class VectorRepository:
     """Persist normalized vectors and perform exact cosine search."""
 
-    def __init__(self, database_path: Path) -> None:
+    def __init__(
+        self,
+        database_path: Path,
+    ) -> None:
         self.database_path = database_path
         self.database_path.parent.mkdir(
             parents=True,
             exist_ok=True,
         )
 
-    def _connect(self) -> sqlite3.Connection:
-        connection = sqlite3.connect(self.database_path)
+    def _connect(
+        self,
+    ) -> sqlite3.Connection:
+        """Return a configured SQLite connection."""
+
+        connection = sqlite3.connect(
+            self.database_path
+        )
+
         connection.row_factory = sqlite3.Row
 
         return connection
 
-    def initialize(self) -> None:
+    def initialize(
+        self,
+    ) -> None:
         """Create the embedding table and indexes."""
 
         with self._connect() as connection:
@@ -86,17 +98,27 @@ class VectorRepository:
     ) -> None:
         """Atomically replace vectors for one document and model."""
 
-        if any(record.document_id != document_id for record in records):
+        if any(
+            record.document_id != document_id
+            for record in records
+        ):
             raise ValueError(
-                "All vector records must belong to the same document"
+                "All vector records must belong to "
+                "the same document"
             )
 
-        if any(record.model_name != model_name for record in records):
+        if any(
+            record.model_name != model_name
+            for record in records
+        ):
             raise ValueError(
-                "All vector records must use the same embedding model"
+                "All vector records must use the "
+                "same embedding model"
             )
 
-        timestamp = datetime.now(UTC).isoformat()
+        timestamp = datetime.now(
+            UTC
+        ).isoformat()
 
         with self._connect() as connection:
             connection.execute(
@@ -105,7 +127,10 @@ class VectorRepository:
                 WHERE document_id = ?
                 AND model_name = ?
                 """,
-                (document_id, model_name),
+                (
+                    document_id,
+                    model_name,
+                ),
             )
 
             connection.executemany(
@@ -149,19 +174,54 @@ class VectorRepository:
         parameters: list[str] = []
 
         if model_name is not None:
-            conditions.append("model_name = ?")
-            parameters.append(model_name)
+            normalized_model_name = (
+                model_name.strip()
+            )
+
+            if not normalized_model_name:
+                raise ValueError(
+                    "model_name cannot be empty"
+                )
+
+            conditions.append(
+                "model_name = ?"
+            )
+
+            parameters.append(
+                normalized_model_name
+            )
 
         if document_id is not None:
-            conditions.append("document_id = ?")
-            parameters.append(document_id)
+            normalized_document_id = (
+                document_id.strip()
+            )
+
+            if not normalized_document_id:
+                raise ValueError(
+                    "document_id cannot be empty"
+                )
+
+            conditions.append(
+                "document_id = ?"
+            )
+
+            parameters.append(
+                normalized_document_id
+            )
 
         where_clause = ""
 
         if conditions:
-            where_clause = " WHERE " + " AND ".join(conditions)
+            where_clause = (
+                " WHERE "
+                + " AND ".join(conditions)
+            )
 
-        query = "SELECT COUNT(*) AS vector_count FROM embeddings"
+        query = (
+            "SELECT COUNT(*) AS vector_count "
+            "FROM embeddings"
+        )
+
         query += where_clause
 
         with self._connect() as connection:
@@ -170,7 +230,60 @@ class VectorRepository:
                 parameters,
             ).fetchone()
 
-        return int(row["vector_count"])
+        return int(
+            row["vector_count"]
+        )
+
+    def _load_search_rows(
+        self,
+        model_name: str,
+        document_id: str | None,
+    ) -> list[sqlite3.Row]:
+        """Load vectors for a model and optional document."""
+
+        query = """
+            SELECT
+                embeddings.chunk_id,
+                embeddings.document_id,
+                embeddings.dimension,
+                embeddings.vector_blob,
+                chunks.source_name,
+                chunks.text,
+                chunks.chunk_order,
+                chunks.heading_path_json
+            FROM embeddings
+            INNER JOIN chunks
+                ON chunks.chunk_id = embeddings.chunk_id
+            WHERE embeddings.model_name = ?
+        """
+
+        parameters: list[str] = [
+            model_name
+        ]
+
+        if document_id is not None:
+            normalized_document_id = (
+                document_id.strip()
+            )
+
+            if not normalized_document_id:
+                raise ValueError(
+                    "document_id cannot be empty"
+                )
+
+            query += (
+                "\nAND embeddings.document_id = ?"
+            )
+
+            parameters.append(
+                normalized_document_id
+            )
+
+        with self._connect() as connection:
+            return connection.execute(
+                query,
+                parameters,
+            ).fetchall()
 
     def search(
         self,
@@ -178,11 +291,23 @@ class VectorRepository:
         model_name: str,
         limit: int = 5,
         minimum_score: float | None = None,
+        document_id: str | None = None,
     ) -> list[SemanticSearchResult]:
-        """Return chunks ranked by cosine similarity."""
+        """Return document-scoped cosine-similarity results."""
 
         if limit <= 0:
-            raise ValueError("limit must be greater than zero")
+            raise ValueError(
+                "limit must be greater than zero"
+            )
+
+        normalized_model_name = (
+            model_name.strip()
+        )
+
+        if not normalized_model_name:
+            raise ValueError(
+                "model_name cannot be empty"
+            )
 
         query_vector = np.asarray(
             query_vector,
@@ -190,50 +315,50 @@ class VectorRepository:
         )
 
         if query_vector.ndim != 1:
-            raise ValueError("query_vector must be one-dimensional")
+            raise ValueError(
+                "query_vector must be one-dimensional"
+            )
 
-        query_norm = float(np.linalg.norm(query_vector))
+        query_norm = float(
+            np.linalg.norm(query_vector)
+        )
 
         if query_norm == 0:
-            raise ValueError("query_vector cannot be a zero vector")
+            raise ValueError(
+                "query_vector cannot be a zero vector"
+            )
 
-        normalized_query = query_vector / query_norm
+        normalized_query = (
+            query_vector / query_norm
+        )
 
-        with self._connect() as connection:
-            rows = connection.execute(
-                """
-                SELECT
-                    embeddings.chunk_id,
-                    embeddings.document_id,
-                    embeddings.dimension,
-                    embeddings.vector_blob,
-                    chunks.source_name,
-                    chunks.text,
-                    chunks.chunk_order,
-                    chunks.heading_path_json
-                FROM embeddings
-                INNER JOIN chunks
-                    ON chunks.chunk_id = embeddings.chunk_id
-                WHERE embeddings.model_name = ?
-                """,
-                (model_name,),
-            ).fetchall()
+        rows = self._load_search_rows(
+            model_name=normalized_model_name,
+            document_id=document_id,
+        )
 
         if not rows:
             return []
 
-        dimensions = {int(row["dimension"]) for row in rows}
+        dimensions = {
+            int(row["dimension"])
+            for row in rows
+        }
 
         if len(dimensions) != 1:
             raise RuntimeError(
-                "Stored embeddings contain inconsistent dimensions"
+                "Stored embeddings contain "
+                "inconsistent dimensions"
             )
 
-        stored_dimension = next(iter(dimensions))
+        stored_dimension = next(
+            iter(dimensions)
+        )
 
         if stored_dimension != query_vector.size:
             raise ValueError(
-                "Query vector dimension does not match stored vectors"
+                "Query vector dimension does not "
+                "match stored vectors"
             )
 
         vectors = np.vstack(
@@ -252,16 +377,31 @@ class VectorRepository:
             keepdims=True,
         )
 
-        vector_norms[vector_norms == 0] = 1.0
-        normalized_vectors = vectors / vector_norms
+        vector_norms[
+            vector_norms == 0
+        ] = 1.0
 
-        scores = normalized_vectors @ normalized_query
-        ranked_indices = np.argsort(-scores)
+        normalized_vectors = (
+            vectors / vector_norms
+        )
 
-        results: list[SemanticSearchResult] = []
+        scores = (
+            normalized_vectors
+            @ normalized_query
+        )
+
+        ranked_indices = np.argsort(
+            -scores
+        )
+
+        results: list[
+            SemanticSearchResult
+        ] = []
 
         for index in ranked_indices:
-            score = float(scores[index])
+            score = float(
+                scores[index]
+            )
 
             if (
                 minimum_score is not None
@@ -269,18 +409,30 @@ class VectorRepository:
             ):
                 continue
 
-            row = rows[int(index)]
+            row = rows[
+                int(index)
+            ]
 
             results.append(
                 SemanticSearchResult(
                     chunk_id=row["chunk_id"],
-                    document_id=row["document_id"],
-                    source_name=row["source_name"],
+                    document_id=row[
+                        "document_id"
+                    ],
+                    source_name=row[
+                        "source_name"
+                    ],
                     text=row["text"],
                     score=score,
-                    chunk_order=row["chunk_order"],
+                    chunk_order=row[
+                        "chunk_order"
+                    ],
                     heading_path=tuple(
-                        json.loads(row["heading_path_json"])
+                        json.loads(
+                            row[
+                                "heading_path_json"
+                            ]
+                        )
                     ),
                 )
             )

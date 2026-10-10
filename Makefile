@@ -16,3 +16,5 @@ run:
 
 api:
 	python -m uvicorn evidenceflow.api.app:app --reload
+ui:
+	python -m streamlit run src/evidenceflow/ui/app.py

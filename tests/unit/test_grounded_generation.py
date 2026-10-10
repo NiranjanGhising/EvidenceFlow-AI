@@ -153,9 +153,11 @@ def test_first_sentence() -> None:
 def test_extractive_answer_contains_citation() -> None:
     generator = ExtractiveAnswerGenerator()
 
-    answer = generator.generate(
-        [make_evidence()]
+    result = generator.generate(
+        question="How does FastAPI validate requests?",
+        evidence=[make_evidence()],
     )
 
+    answer = result.text
     assert "FastAPI validates requests." in answer
     assert "[chunk-abc123]" in answer

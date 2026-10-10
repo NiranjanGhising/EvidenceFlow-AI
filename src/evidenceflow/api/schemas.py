@@ -88,18 +88,27 @@ class IndexResponse(BaseModel):
 
 
 class SearchRequest(BaseModel):
-    """Request for semantic or hybrid retrieval."""
+    """Request for document-scoped hybrid retrieval."""
 
     query: str = Field(min_length=1)
+
+    document_id: str | None = Field(
+        default=None,
+        description=(
+            "Optional document ID used to restrict retrieval "
+            "to one document"
+        ),
+    )
+
     limit: int = Field(
         default=5,
         greater_than=0,
     )
+
     candidates: int = Field(
         default=20,
         greater_than=0,
     )
-
 
 class SearchResultResponse(BaseModel):
     """One retrieval result."""
@@ -129,20 +138,44 @@ class SearchResponse(BaseModel):
 
 
 class AnswerRequest(BaseModel):
-    """Request for a grounded answer."""
+    """Request for a document-scoped grounded answer."""
 
     question: str = Field(min_length=1)
+
+    document_id: str | None = Field(
+        default=None,
+        description=(
+            "Optional document ID used to restrict retrieval "
+            "and answering to one document"
+        ),
+    )
+
+    conversation_history: list[dict[str, str]] = Field(
+        default_factory=list,
+        description=(
+            "Previous user and assistant messages used "
+            "for conversational context"
+        ),
+    )
+
     candidates: int = Field(
         default=10,
         greater_than=0,
     )
+
     limit: int = Field(
         default=5,
         greater_than=0,
     )
-    minimum_rerank_score: float = 0.0
 
-
+    minimum_rerank_score: float | None = Field(
+        default=None,
+        description=(
+            "Optional advanced reranker threshold. "
+            "When omitted, retrieval signals determine "
+            "evidence sufficiency."
+        ),
+    )
 class CitationResponse(BaseModel):
     """Structured answer citation."""
 
@@ -176,7 +209,7 @@ class EvidenceResponse(BaseModel):
 
 
 class AnswerResponse(BaseModel):
-    """Grounded-answer API response."""
+    """Grounded LLM answer API response."""
 
     question: str
     answer: str
@@ -185,12 +218,15 @@ class AnswerResponse(BaseModel):
     retrieval_mode: str
     reranker_model: str
     used_reranker_fallback: bool
+    generation_provider: str
+    generation_model: str
+    used_llm_fallback: bool
+    llm_fallback_reason: str | None
     citation_validation: CitationValidationResponse
     citations: list[CitationResponse]
     evidence: list[EvidenceResponse]
     latency_ms: dict[str, float]
     warnings: list[str]
-
 
 class ErrorResponse(BaseModel):
     """Standard API error response."""

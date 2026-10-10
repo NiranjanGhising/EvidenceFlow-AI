@@ -121,13 +121,33 @@ class EmbeddingIndexService:
         query: str,
         limit: int = 5,
         minimum_score: float | None = None,
+        document_id: str | None = None,
     ) -> list[SemanticSearchResult]:
         """Search indexed chunks using semantic similarity."""
 
         normalized_query = query.strip()
 
         if not normalized_query:
-            raise ValueError("Search query cannot be empty")
+            raise ValueError(
+                "Search query cannot be empty"
+            )
+
+        if limit <= 0:
+            raise ValueError(
+                "limit must be greater than zero"
+            )
+
+        normalized_document_id = None
+
+        if document_id is not None:
+            normalized_document_id = (
+                document_id.strip()
+            )
+
+            if not normalized_document_id:
+                raise ValueError(
+                    "document_id cannot be empty"
+                )
 
         query_vectors = self.encoder.encode(
             [normalized_query]
@@ -138,4 +158,5 @@ class EmbeddingIndexService:
             model_name=self.encoder.model_name,
             limit=limit,
             minimum_score=minimum_score,
+            document_id=normalized_document_id,
         )

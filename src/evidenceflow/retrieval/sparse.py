@@ -19,15 +19,22 @@ class BM25Retriever:
         heading_weight: int = 2,
     ) -> None:
         if heading_weight < 0:
-            raise ValueError("heading_weight cannot be negative")
+            raise ValueError(
+                "heading_weight cannot be negative"
+            )
 
         self.chunk_repository = chunk_repository
         self.heading_weight = heading_weight
 
-    def _chunk_tokens(self, chunk: Chunk) -> list[str]:
+    def _chunk_tokens(
+        self,
+        chunk: Chunk,
+    ) -> list[str]:
         """Tokenize chunk text with optional heading weighting."""
 
-        text_tokens = tokenize_for_search(chunk.text)
+        text_tokens = tokenize_for_search(
+            chunk.text
+        )
 
         heading_tokens = tokenize_for_search(
             " ".join(chunk.heading_path)
@@ -38,27 +45,56 @@ class BM25Retriever:
             + text_tokens
         )
 
+    def _load_chunks(
+        self,
+        document_id: str | None,
+    ) -> list[Chunk]:
+        """Load all chunks or chunks belonging to one document."""
+
+        if document_id is None:
+            return self.chunk_repository.list_all()
+
+        normalized_document_id = document_id.strip()
+
+        if not normalized_document_id:
+            raise ValueError(
+                "document_id cannot be empty"
+            )
+
+        return self.chunk_repository.list_by_document(
+            normalized_document_id
+        )
+
     def search(
         self,
         query: str,
         limit: int = 10,
-    ) -> list[SparseSearchResult]:
-        """Search all stored chunks using BM25."""
+        document_id: str | None = None,
+    ) -> list[Chunk]:
+        """Search stored chunks using document-scoped BM25."""
 
         normalized_query = query.strip()
 
         if not normalized_query:
-            raise ValueError("Search query cannot be empty")
+            raise ValueError(
+                "Search query cannot be empty"
+            )
 
         if limit <= 0:
-            raise ValueError("limit must be greater than zero")
+            raise ValueError(
+                "limit must be greater than zero"
+            )
 
-        query_tokens = tokenize_for_search(normalized_query)
+        query_tokens = tokenize_for_search(
+            normalized_query
+        )
 
         if not query_tokens:
             return []
 
-        chunks = self.chunk_repository.list_all()
+        chunks = self._load_chunks(
+            document_id=document_id
+        )
 
         if not chunks:
             return []
@@ -68,18 +104,30 @@ class BM25Retriever:
             for chunk in chunks
         ]
 
-        bm25 = BM25Okapi(tokenized_corpus)
-        scores = bm25.get_scores(query_tokens)
+        bm25 = BM25Okapi(
+            tokenized_corpus
+        )
+
+        scores = bm25.get_scores(
+            query_tokens
+        )
 
         ranked = sorted(
-            zip(chunks, scores, strict=True),
+            zip(
+                chunks,
+                scores,
+                strict=True,
+            ),
             key=lambda item: (
                 -float(item[1]),
                 item[0].chunk_id,
             ),
         )
 
-        query_token_set = set(query_tokens)
+        query_token_set = set(
+            query_tokens
+        )
+
         results: list[SparseSearchResult] = []
 
         for chunk, raw_score in ranked:
@@ -96,7 +144,9 @@ class BM25Retriever:
             if not has_lexical_match:
                 continue
 
-            score = float(raw_score)
+            score = float(
+                raw_score
+            )
 
             results.append(
                 SparseSearchResult(

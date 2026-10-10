@@ -209,6 +209,7 @@ def hybrid_search(
             query=request.query,
             candidate_limit=request.candidates,
             result_limit=request.limit,
+            document_id=request.document_id,
         )
     except ValueError as exc:
         raise bad_request(str(exc)) from exc
@@ -264,6 +265,10 @@ def answer_question(
             question=request.question,
             candidate_limit=request.candidates,
             result_limit=request.limit,
+            document_id=request.document_id,
+            conversation_history=(
+                request.conversation_history
+            ),
         )
     except ValueError as exc:
         raise bad_request(str(exc)) from exc
@@ -277,6 +282,18 @@ def answer_question(
         reranker_model=result.model_name,
         used_reranker_fallback=(
             result.used_reranker_fallback
+        ),
+        generation_provider=(
+            result.generation_provider
+        ),
+        generation_model=(
+            result.generation_model
+        ),
+        used_llm_fallback=(
+            result.used_llm_fallback
+        ),
+        llm_fallback_reason=(
+            result.llm_fallback_reason
         ),
         citation_validation=CitationValidationResponse(
             valid=result.citation_validation.valid,

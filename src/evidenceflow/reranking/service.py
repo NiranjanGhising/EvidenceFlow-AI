@@ -169,13 +169,16 @@ class RerankedRetriever:
         candidate_limit: int = 20,
         result_limit: int = 5,
         dense_minimum_score: float | None = None,
+        document_id: str | None = None,
     ) -> RerankingResponse:
-        """Retrieve hybrid candidates and rerank the result set."""
+        """Retrieve document-scoped candidates and rerank them."""
 
         normalized_query = query.strip()
 
         if not normalized_query:
-            raise ValueError("Search query cannot be empty")
+            raise ValueError(
+                "Search query cannot be empty"
+            )
 
         if candidate_limit <= 0:
             raise ValueError(
@@ -192,6 +195,16 @@ class RerankedRetriever:
                 "result_limit cannot exceed candidate_limit"
             )
 
+        normalized_document_id = None
+
+        if document_id is not None:
+            normalized_document_id = document_id.strip()
+
+            if not normalized_document_id:
+                raise ValueError(
+                    "document_id cannot be empty"
+                )
+
         total_start = perf_counter()
 
         hybrid_response = self.hybrid_retriever.search(
@@ -199,6 +212,7 @@ class RerankedRetriever:
             candidate_limit=candidate_limit,
             result_limit=candidate_limit,
             dense_minimum_score=dense_minimum_score,
+            document_id=normalized_document_id,
         )
 
         hybrid_end = perf_counter()
@@ -209,28 +223,44 @@ class RerankedRetriever:
             fallback_reason,
         ) = self.reranking_service.rerank(
             query=normalized_query,
-            candidates=list(hybrid_response.results),
+            candidates=list(
+                hybrid_response.results
+            ),
             top_k=result_limit,
         )
 
         rerank_end = perf_counter()
 
         latency_ms = {
-            "hybrid": (hybrid_end - total_start) * 1000,
-            "rerank": (rerank_end - hybrid_end) * 1000,
-            "total": (rerank_end - total_start) * 1000,
+            "hybrid": (
+                hybrid_end - total_start
+            )
+            * 1000,
+            "rerank": (
+                rerank_end - hybrid_end
+            )
+            * 1000,
+            "total": (
+                rerank_end - total_start
+            )
+            * 1000,
         }
 
         logger.info(
             "reranked_search_completed",
             extra={
                 "query": normalized_query,
+                "document_id": normalized_document_id,
                 "candidate_count": len(
                     hybrid_response.results
                 ),
-                "result_count": len(reranked_results),
+                "result_count": len(
+                    reranked_results
+                ),
                 "model_name": (
-                    self.reranking_service.reranker.model_name
+                    self.reranking_service
+                    .reranker
+                    .model_name
                 ),
                 "used_fallback": used_fallback,
                 "latency_ms": latency_ms["total"],
@@ -239,10 +269,14 @@ class RerankedRetriever:
 
         return RerankingResponse(
             query=normalized_query,
-            results=tuple(reranked_results),
+            results=tuple(
+                reranked_results
+            ),
             hybrid_response=hybrid_response,
             model_name=(
-                self.reranking_service.reranker.model_name
+                self.reranking_service
+                .reranker
+                .model_name
             ),
             used_fallback=used_fallback,
             fallback_reason=fallback_reason,

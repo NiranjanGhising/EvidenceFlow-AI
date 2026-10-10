@@ -21,10 +21,14 @@ class FakeRetriever:
         candidate_limit: int = 20,
         result_limit: int = 5,
         dense_minimum_score: float | None = None,
+        document_id: str | None = None,
     ) -> RerankingResponse:
-        del candidate_limit
-        del result_limit
-        del dense_minimum_score
+        del (
+            candidate_limit,
+            result_limit,
+            dense_minimum_score,
+            document_id,
+        )
 
         hybrid_response = HybridSearchResponse(
             query=query,

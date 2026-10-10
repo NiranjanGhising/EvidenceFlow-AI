@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "evidenceflow-ai"
-version = "0.8.0"
+version = "0.11.0"
 description = "Evidence-grounded document intelligence and RAG evaluation pipeline"
 readme = "README.md"
 requires-python = ">=3.12,<3.14"
@@ -12,8 +12,11 @@ license = { text = "MIT" }
 authors = [{ name = "Niranjan Ghising" }]
 dependencies = [
   "fastapi>=0.115,<1.0",
+  "google-genai>=1.0,<2.0",
+  "groq>=0.30,<1.0",
   "pydantic>=2.9,<3.0",
   "pypdf>=5,<7",
+  "python-dotenv>=1.0,<2.0",
   "uvicorn[standard]>=0.30,<1.0",
 ]
 
@@ -45,6 +48,7 @@ evidenceflow-hybrid-search = "evidenceflow.retrieval.cli:main"
 evidenceflow-reranked-search = "evidenceflow.reranking.cli:main"
 evidenceflow-answer = "evidenceflow.generation.cli:main"
 evidenceflow-evaluate = "evidenceflow.evaluation.cli:main"
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/evidenceflow"]
 
