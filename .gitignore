@@ -1,17 +1,37 @@
+# Virtual environments
 .venv/
-.env
+venv/
+
+# Python cache
 __pycache__/
 *.py[cod]
+
+# Tool caches
 .pytest_cache/
 .ruff_cache/
 .coverage
 htmlcov/
+
+# Environment variables
+.env
+.env.local
+
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Generated evaluation reports
+artifacts/evaluation/*.json
+artifacts/evaluation/*.csv
+
+# IDE and operating system
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Build outputs
 dist/
 build/
 *.egg-info/
-artifacts/*
-!artifacts/.gitkeep
-data/documents/*
-!data/documents/.gitkeep
-.streamlit/secrets.toml
-.DS_Store
